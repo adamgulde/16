@@ -1,4 +1,3 @@
-package aff.net;
 import java.util.ArrayList;
 import java.io.BufferedReader;  
 import java.io.FileReader;  
@@ -13,12 +12,7 @@ public class GUI{ // Manages all global variables (number nodes, tags, etc) and 
 	
 	public GUI() 
 	{	
-		ArrayList<ArrayList<String[]>> data = new ArrayList<ArrayList<String[]>>();
-		data.add(extractContactInfo());
-		data.add(extractConnections());
-		data.add(extractTags());
-		data.add(extractNotes());
-		new Network(data);
+		new Network(extractAllData());
 	}	
 	public static void restartNetwork(ArrayList<ArrayList<String[]>> data) {
 		new Network(data);
@@ -26,31 +20,28 @@ public class GUI{ // Manages all global variables (number nodes, tags, etc) and 
 	public static void writeData(ArrayList<ArrayList<String[]>> data) {
 		FileWriter fr;
 		try {
-			fr = new FileWriter("ContactInfo.csv");
+			fr = new FileWriter("AllData.csv");
 			for(String[] line : data.get(0)) {
 				for(String text : line) {
 					fr.write(text + ",");
 				}
 				fr.write("\n");
 			}
-			fr.close();
-			fr = new FileWriter("Connections.csv");
+			fr.write("###BREAK###\n");
 			for(String[] line : data.get(1)) {
 				for(String text : line) {
 					fr.write(text + ",");
 				}
 				fr.write("\n");
 			}
-			fr.close(); 
-			fr = new FileWriter("Tags.csv");
+			fr.write("###BREAK###\n");
 			for(String[] line : data.get(2)) {
 				for(String text : line) {
 					fr.write(text + ",");
 				}
 				fr.write("\n");
 			}
-			fr.close();
-			fr = new FileWriter("Notes.csv");
+			fr.write("###BREAK###\n");
 			for(String[] line : data.get(3)) {
 				for(String text : line) {
 					fr.write(text + ",");
@@ -61,57 +52,28 @@ public class GUI{ // Manages all global variables (number nodes, tags, etc) and 
 		} catch (IOException e) { e.printStackTrace(); }  
 		
 	}
-	private ArrayList<String[]> extractContactInfo() {
-		ArrayList<String[]> info = new ArrayList<String[]>();
+	
+	private ArrayList<ArrayList<String[]>> extractAllData() {
+		ArrayList<ArrayList<String[]>> allData = new ArrayList<ArrayList<String[]>>();
 		String line = "";  
 		try   
 		{  
-			BufferedReader br = new BufferedReader(new FileReader("ContactInfo.csv")); 
-			while ((line = br.readLine()) != null)     
-			{  
-				String[] contactData = line.split(",");    
-				info.add(contactData);
-			}  
+			BufferedReader br = new BufferedReader(new FileReader("AllData.csv")); 
+			for(int i=0; i<4;i++) {
+				allData.add(new ArrayList<String[]>());
+				while ((line = br.readLine()) != null)  
+				{  
+					if(line.startsWith("###BREAK###")) break;
+					else {
+						String[] lineData = line.split(",");    
+						allData.get(i).add(lineData);
+					}
+				}
+			}
 			br.close(); 
 		}   
 		catch (IOException e) { e.printStackTrace(); }    
-		return info;
-	}
-	private ArrayList<String[]> extractConnections() {
-		ArrayList<String[]> connections = new ArrayList<String[]>();
-		String line = "";  
-		try   
-		{  
-			BufferedReader br = new BufferedReader(new FileReader("Connections.csv")); 
-			while ((line = br.readLine()) != null)     
-			{  
-				String[] connectionData = line.split(",");    
-				connections.add(connectionData);
-			}  
-			br.close();
-		}   
-		catch (IOException e) { e.printStackTrace(); }    
-		return connections;
-	}
-	private ArrayList<String[]> extractTags() {
-		ArrayList<String[]> tags = new ArrayList<String[]>();
-		String line = "";  
-		try   
-		{  
-			BufferedReader br = new BufferedReader(new FileReader("Tags.csv")); 
-			while ((line = br.readLine()) != null)     
-			{  
-				String[] tagData = line.split(",");    
-				tags.add(tagData);
-			}  
-			br.close();
-		}   
-		catch (IOException e) { e.printStackTrace(); }  
-		return tags;
-	}
-	private ArrayList<String[]> extractNotes() {
-		ArrayList<String[]> notes = new ArrayList<String[]>();
-		return notes;
+		return allData;
 	}
 	
 	public static void main(String[] args) {

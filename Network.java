@@ -1,5 +1,3 @@
-package aff.net;
-
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Container;
@@ -52,18 +50,22 @@ public class Network {
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		createMenuBar(frame);
 
-		Container pane = frame.getContentPane();
-		pane.setLayout(null);
+		NodePanel panel = new NodePanel();
+		frame.add(panel);
+		panel.setLayout(null);
 
 		for (int i = 0; i < numNodes; i++) {
-			if (i == 0) {
-				pane.add(createNode("You", info.get(0), coords.get(i)[0], coords.get(i)[1]));
-			} else
-				pane.add(createNode(info.get(i)[0], info.get(i), coords.get(i)[0], coords.get(i)[1]));
+			panel.add(createNode(info.get(i)[0], info.get(i), coords.get(i)[0], coords.get(i)[1], panel));
 		}
-
+		
 		frame.setSize(MAP_WIDTH, MAP_HEIGHT);
-
+		
+		for(int i = 0; i < numNodes; i++) {
+			for(int j = 0; j < connections.get(i).length; j++) {
+				frame.paint(null);
+			}
+		}
+		
 		frame.setVisible(true);
 	}
 
@@ -187,11 +189,9 @@ public class Network {
 				JFrame popup = new JFrame("Paint Function");
 				windows.add(popup);
 				popup.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-				JPanel panel = new JPanel();
+//				JPanel panel = new NodePanel();
 
-				paint(panel.getGraphics());
-
-				popup.add(panel);
+//				popup.add(panel);
 				defaultPopupBehavior(popup);
 			}
 		});					
@@ -205,7 +205,7 @@ public class Network {
 	}
 				
 
-	public JButton createNode(String name, String[] nodeContactInfo, int x, int y) {
+	public JButton createNode(String name, String[] nodeContactInfo, int x, int y, NodePanel frame) {
 		JButton button = new JButton(new AbstractAction(name) {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -268,6 +268,7 @@ public class Network {
 			}
 		});
 		
+		frame.appendCoordsList(createConnectionPairs(nameToID(name)), x, y);
 		button.setLocation(x, y);
 		button.setSize(button.getPreferredSize());
 		button.setOpaque(true);
@@ -396,12 +397,7 @@ public class Network {
 		popup_.setAlwaysOnTop(true);
 		popup_.setLocation(MouseInfo.getPointerInfo().getLocation());
 	}
-	public void defaultPopupBehavior(JInternalFrame popup_) { // helper function to clean code
-		popup_.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);	
-		popup_.pack();
-		popup_.setVisible(true);
-		popup_.setLocation(MouseInfo.getPointerInfo().getLocation());
-	}
+
 	public void addComponentsToPanel(JPanel panel_, ArrayList<JComponent> comps) { // helper function to clean code
 		for(JComponent comp : comps) {
 			panel_.add(comp);
@@ -432,19 +428,29 @@ public class Network {
 	public boolean checkNeighboringNodes(int nodeID) {
 		return true;
 	}
-	private void drawConnections() {
+	public int nameToID(String name) { 
+		for(int i = 0; i < info.size(); i++) {
+			if(info.get(i)[0].equals(name)) return i;
+		}
+		System.out.println("Name not found...");
+		return -1;
+	}
+	public String IDtoName(int id) {
+		try {
+			return info.get(0)[0];
+		} catch (IndexOutOfBoundsException e) {
+			System.out.println("ID not found...");
+			return "N/A";
+		}
 		
 	}
-	public void paint(Graphics g) {
-		Graphics2D g2D = (Graphics2D) g;
-		  
-		g2D.setPaint(Color.blue);
-		g2D.drawLine(120, 50, 360, 50);
-		  
+	private ArrayList<int[]> createConnectionPairs(int id) {
+		ArrayList<int[]> connectionCoords = new ArrayList<int[]>();
+		for(int i = 0; i<connections.get(id).length; i++) {
+			connectionCoords.add(new int[2]);
+			connectionCoords.get(i)[0] = Integer.parseInt(tags.get(nameToID(connections.get(id)[i]))[0]);
+			connectionCoords.get(i)[1] = Integer.parseInt(tags.get(nameToID(connections.get(id)[i]))[1]);
+		}
+		return connectionCoords;
 	}
-}
-
-class PaintPanel extends JPanel {
-	
-}
 }
