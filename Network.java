@@ -1,8 +1,14 @@
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.GridLayout;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
@@ -11,28 +17,29 @@ import javax.swing.*;
 
 public class Network {
 
-	private final int MAP_WIDTH = 1280;
-	private final int MAP_HEIGHT = 720;
+	private final int MAP_WIDTH = 1920;
+	private final int MAP_HEIGHT = 1080;
 	
 	private ArrayList<String[]> info = new ArrayList<String[]>();
 	private ArrayList<String[]> connections = new ArrayList<String[]>();
 	private ArrayList<String[]> tags = new ArrayList<String[]>();
 	private ArrayList<String[]> notes = new ArrayList<String[]>();
-	private ArrayList<int[]> coords = new ArrayList<int[]>();
+	private ArrayList<Point> coords = new ArrayList<Point>();
 	
 	boolean[] flags; // true is clicked / deleted
 	
 	private ArrayList<JButton> nodes = new ArrayList<JButton>();
 	private ArrayList<JFrame> windows = new ArrayList<JFrame>();
-	int numNodes = 1;
-	Random RNG = new Random();
-	NodePanel truePanel;
+	private ArrayList<ConnectionLine> conLines = new ArrayList<ConnectionLine>();
+	private ArrayList<int[]> connectionIDs = new ArrayList<int[]>();
 	
-	String[] prefixes = { "Name", "Email 1", "Email 2", "Email 3", "Cell Number", "Work Number", "LinkedIn",
+	private int numNodes = 1;
+	private Random RNG = new Random();
+	private NodePanel truePanel;
+	
+	private String[] prefixes = { "Name", "Email 1", "Email 2", "Email 3", "Cell Number", "Work Number", "LinkedIn",
 			"Instagram 1", "Instagram 2", "Snapchat", "Discord", "Facebook Link", "Twitter Link", "Reddit", "Other 1",
 			"Other 2" };
-	
-	
 	
 	public Network(ArrayList<ArrayList<String[]>> data) {
 		
@@ -42,27 +49,29 @@ public class Network {
 		notes = data.get(3);
 		numNodes = info.size();
 		setCoordsList(tags);
-		int[] highCoords = getHighestCoords();
 		flags = new boolean[numNodes]; // true is clicked / deleted
 		
 		JFrame frame = new JFrame("Network");
 		windows.add(frame);
 		createMenuBar(frame);
-		navigationPane();
-		NodePanel panel = new NodePanel();
+		NodePanel panel = new NodePanel(this);
 		truePanel = panel;
 		panel.setLayout(null);
-
 		for (int i = 0; i < numNodes; i++) {
-			nodes.add(createNode(info.get(i)[0], info.get(i), coords.get(i)[0], coords.get(i)[1]));
+			nodes.add(createNode(info.get(i)[0], info.get(i), connections.get(i), notes.get(i), coords.get(i).x, coords.get(i).y));
 			panel.add(nodes.get(i));
 		}
-		
+		relocateNodes();
 		frame.add(panel);
 		
 		frame.setSize(new Dimension(MAP_WIDTH, MAP_HEIGHT));
 		frame.setVisible(true);
 		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		frame.addWindowListener(new WindowAdapter(){
+		    public void windowClosing(WindowEvent e){
+		        closeUpperWindows();
+		    }
+		});
 	}
 
 	@SuppressWarnings("serial")
@@ -145,7 +154,12 @@ public class Network {
 
 			}
 		});
-
+		JButton openNavPane = new JButton(new AbstractAction("Open Navigation Pane") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				navigationPane(frame);
+			}
+		});	
 		JButton refreshNetwork = new JButton(new AbstractAction("Refresh Network") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -181,26 +195,34 @@ public class Network {
 				GUI.writeData(new ArrayList<>(Arrays.asList(info, connections, tags, notes)));
 			}
 		});			
-		
 		menuBar.add(addNodeButton);
 		menuBar.add(removeNodeButton);
+//		menuBar.add(openNavPane);
 		menuBar.add(refreshNetwork);
 		menuBar.add(saveAndClose);
 		frame.setJMenuBar(menuBar);
 	}
 				
-	private void navigationPane() {
-		JFrame popup = new JFrame("Navigation Panel");
-		windows.add(popup);
+	private void navigationPane(JFrame parent) {
 		JPanel panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
+		panel.setLayout(new GridLayout(3,3));
+		JButton dummy = new JButton();
+		dummy.setEnabled(false);
+		JButton dummy1 = new JButton();
+		dummy1.setEnabled(false);
+		JButton dummy2 = new JButton();
+		dummy2.setEnabled(false);
+		JButton dummy3 = new JButton();
+		dummy3.setEnabled(false);
+		JButton dummy4 = new JButton();
+		dummy4.setEnabled(false);
 		
 		JButton translateUp = new JButton(new AbstractAction("Up") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i)[1] = coords.get(i)[1] + 20;
-					relocateNodes(1);
+					coords.get(i).y = coords.get(i).y + 20;
+					relocateNodes();
 				}
 			}
 		});	
@@ -208,8 +230,8 @@ public class Network {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i)[1] = coords.get(i)[1] - 20;
-					relocateNodes(3);
+					coords.get(i).y = coords.get(i).y - 20;
+					relocateNodes();
 				}
 			}
 		});	
@@ -217,8 +239,8 @@ public class Network {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i)[0] = coords.get(i)[0] + 20;
-					relocateNodes(4);
+					coords.get(i).x = coords.get(i).x + 20;
+					relocateNodes();
 				}
 			}
 		});	
@@ -226,28 +248,39 @@ public class Network {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i)[0] = coords.get(i)[0] - 20;
-					relocateNodes(2);
+					coords.get(i).x = coords.get(i).x - 20;
+					relocateNodes();
 				}
 			}
 		});	
 		addComponentsToPanel(panel, new ArrayList<JComponent>(Arrays.asList(
-				translateUp,translateDown,translateRight,translateLeft)));
-		popup.add(panel);
-		popup.setVisible(true);
-		popup.pack();
-		popup.setLocationRelativeTo(truePanel);
-		popup.setAlwaysOnTop(true);
-		popup.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+				dummy,translateUp,dummy1,translateLeft,dummy2,translateRight,dummy3,translateDown,dummy4)));
+		panel.setVisible(true);
 	}
-	private void relocateNodes(int mode) {
-		truePanel.deleteCoordsList();
+	private void relocateNodes() {
+		conLines.clear();
 		for(int i=0;i<numNodes;i++) {
-			nodes.get(i).setLocation(coords.get(i)[0], coords.get(i)[1]);
-			truePanel.appendCoordsList(createConnectionPairs(nameToID(info.get(i)[0])), coords.get(i)[0], coords.get(i)[1]);
+			for(int ID : connectionIDs.get(i)) {
+				conLines.add(new ConnectionLine(coords.get(i), coords.get(ID)));
+			}
+			nodes.get(i).setLocation(coords.get(i).x, coords.get(i).y);
 		}
+		truePanel.retrieveLinesList(conLines);
 	}
-	private JButton createNode(String name, String[] nodeContactInfo, int x, int y) {
+	public void relocateNodes(int dx, int dy) {
+		conLines.clear();
+		for(int i=0;i<numNodes;i++) {
+			coords.get(i).x += dx;
+			coords.get(i).y += dy;
+			for(int ID : connectionIDs.get(i)) {
+				conLines.add(new ConnectionLine(coords.get(i), coords.get(ID)));
+			}
+			nodes.get(i).setLocation(coords.get(i).x, coords.get(i).y);
+		}
+		truePanel.retrieveLinesList(conLines);
+	}
+	private JButton createNode(String name, String[] nodeContactInfo, String[] connections, String[] notes, int x, int y) {
+		int myID = nameToID(name);
 		JButton button = new JButton(new AbstractAction(name) {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -275,14 +308,23 @@ public class Network {
 						popupEditConnections(nodeID);
 					}
 				});
+				JButton viewNotes = new JButton(new AbstractAction("View Notes") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						popupNotes(notes);
+					}
+				});
 				
-				addComponentsToPanel(panel, new ArrayList<JComponent>(Arrays.asList(contactInfo, editNode, editConnections)));
+				addComponentsToPanel(panel, new ArrayList<JComponent>(Arrays.asList(contactInfo, editNode, editConnections, viewNotes)));
 				popup.add(panel);
 				defaultPopupBehavior(popup);
 			}
 		});
-		
-		truePanel.appendCoordsList(createConnectionPairs(nameToID(name)), x, y);
+		connectionIDs.add(namesToIDs(connections));
+		for(int ID : connectionIDs.get(myID)) {
+			conLines.add(new ConnectionLine(coords.get(myID), coords.get(ID)));
+		}
+	
 		button.setLocation(x, y);
 		button.setSize(button.getPreferredSize());
 		button.setOpaque(true);
@@ -351,6 +393,31 @@ public class Network {
 
 		popup.add(panel);
 		defaultPopupBehavior(popup);
+	}
+	private void popupNotes(String[] notes) {
+		JFrame popup = new JFrame("Notes");
+		windows.add(popup);
+		JPanel panel = new JPanel();
+		JTextArea noteArea;
+		if(notes[0]!=null) { // Crashes anyway if empty- initialize new nodes with placeholder data 
+			noteArea = new JTextArea(notes[0], 10, 10);
+		} else {
+			noteArea = new JTextArea("This is a note. Add relevant information about your contact here.");
+		}
+		noteArea.setLineWrap(true);
+		JButton submitInfo = new JButton(new AbstractAction("Submit Info") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				notes[0] = noteArea.getText();
+				popup.dispose();
+			}
+		});
+		panel.add(noteArea);
+		panel.add(submitInfo);
+
+		popup.add(panel);
+		defaultPopupBehavior(popup);
+		popup.setSize(new Dimension(300, 400));
 	}
 	private void popupEditConnections(int nodeID) {
 		JFrame popup = new JFrame("Edit Connections");
@@ -452,12 +519,25 @@ public class Network {
 		defaultPopupBehavior(popup);
 	}
 	private void defaultPopupBehavior(JFrame popup_) { // helper function to clean code
-		popup_.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);	
+		popup_.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		popup_.pack();
 		popup_.setVisible(true);
 		popup_.setAlwaysOnTop(true);
 		popup_.setLocation(MouseInfo.getPointerInfo().getLocation());
 	}
+	private void defaultPopupBehavior(JFrame popup_, int num) { 
+		popup_.addWindowListener(new WindowAdapter(){
+		    public void windowClosing(WindowEvent e){
+		        closeUpperWindows(windows.indexOf(popup_)+1);
+		    }
+		});
+		popup_.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		popup_.pack();
+		popup_.setVisible(true);
+		popup_.setAlwaysOnTop(true);
+		popup_.setLocation(MouseInfo.getPointerInfo().getLocation());
+	}
+	
 
 	private void addComponentsToPanel(JPanel panel_, ArrayList<JComponent> comps) { // helper function to clean code
 		for(JComponent comp : comps) {
@@ -472,17 +552,16 @@ public class Network {
 	}
 	private void setCoordsList(ArrayList<String[]> tagsList) {
 		for(int i = 0; i < tagsList.size(); i++) {
-			coords.add(new int[2]);
-			for(int j = 0; j < 2; j++) {
-				coords.get(i)[j] = Integer.parseInt(tagsList.get(i)[j]);
-			}
+			coords.add(new Point());
+			coords.get(i).y = Integer.parseInt(tagsList.get(i)[1]);
+			coords.get(i).x = Integer.parseInt(tagsList.get(i)[0]);
 		}		
 	}
-	private int[] getHighestCoords() {
-		int[] highest = new int[] {0,0};
-		for(int[] arr : coords) {
-			if(arr[0]>highest[0]) highest[0] = arr[0]+60;
-			if(arr[1]>highest[1]) highest[1] = arr[1]+60;
+	private Point getHighestCoords() {
+		Point highest = new Point(0,0);
+		for(Point arr : coords) {
+			if(arr.x>highest.x) highest.x = arr.x+60;
+			if(arr.y>highest.y) highest.y = arr.y+60;
 		}
 		return highest;
 	}
@@ -511,27 +590,51 @@ public class Network {
 			System.out.println("ID not found...");
 			return "N/A";
 		}
-		
-	}
-	private ArrayList<int[]> createConnectionPairs(int id) {
-		ArrayList<int[]> connectionCoords = new ArrayList<int[]>();
-		for(int i = 0; i<connections.get(id).length; i++) {
-			connectionCoords.add(new int[2]);
-			connectionCoords.get(i)[0] = Integer.parseInt(tags.get(nameToID(connections.get(id)[i]))[0]);
-			connectionCoords.get(i)[1] = Integer.parseInt(tags.get(nameToID(connections.get(id)[i]))[1]);
-		}
-		return connectionCoords;
 	}
 	
-	public ArrayList<int[]> getCoordsList() {
+	/* Instead of using the looping "nameToID" function throughout
+	 * execution, this function will be run ONCE per node and will
+	 * return a usable list of IDs for each person in node's 
+	 * connection list. 
+	 */
+	private int[] namesToIDs(String[] names) { 
+		int[] translatedIDs = new int[names.length];
+		for(int i=0;i<names.length;i++) {
+			translatedIDs[i] = nameToID(names[i]);
+		}
+		return translatedIDs;
+	}
+	public ArrayList<Point> getCoordsList() {
 		return coords;
 	}
 	public Point getNodeLocation(int ID) {
-		return new Point(coords.get(ID)[0], coords.get(ID)[1]);
+		return new Point(coords.get(ID).x, coords.get(ID).y);
 	}
 	public Point getNodeLocation(String name) {
-		return new Point(coords.get(nameToID(name))[0], coords.get(nameToID(name))[1]);
+		return new Point(coords.get(nameToID(name)).x, coords.get(nameToID(name)).y);
 	}
-
-	
+	/* Deletes excess windows that have appeared 
+	 * and need to be removed.
+	 */
+	public void closeUpperWindows() {
+		for(int i = 1; i < windows.size(); i++) {
+			windows.get(i).dispose();
+			windows.remove(i);
+			i--;
+		}
+	}
+	public void closeUpperWindows(int start) {
+		for(int i = start; i < windows.size(); i++) {
+			windows.get(i).dispose();
+			windows.remove(i);
+			i--;
+		}
+	}
+	private void closeUpperWindows(int start, int winID) {
+		for(int i = start; i == winID; i++) {
+			windows.get(i).dispose();
+			windows.remove(i);
+			i--;
+		}
+	}
 }
