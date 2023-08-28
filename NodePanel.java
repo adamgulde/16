@@ -20,24 +20,17 @@ public class NodePanel extends JPanel {
             	endpoint = e.getPoint();
             	origin = e.getPoint();
             	repaint();
-            }
-            
+            } 
         });
-		addMouseListener(new MouseAdapter() {
-			@Override
-            public void mouseReleased(MouseEvent e) {
-            	origin = new Point(0,0);
-            	endpoint = origin;
-            	repaint();
-            }
-		});
 		addMouseMotionListener(new MouseMotionAdapter() {
 	        @Override
 	        public void mouseDragged(MouseEvent e) {
 	        	endpoint = e.getPoint();
-	        	N.relocateNodes(-(endpoint.x-origin.x)/50, 
-            			-(endpoint.y-origin.y)/50);
+	        	N.relocateNodes((endpoint.x-origin.x), 
+            			(endpoint.y-origin.y));
 	        	repaint();
+	        	origin = endpoint;
+	        	// Credit to Dylan Coben for fixing mouse code. 
 	        }
 	    });
 	}
@@ -49,7 +42,6 @@ public class NodePanel extends JPanel {
 	@Override
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
-		g.drawLine(origin.x, origin.y, endpoint.x, endpoint.y);
 		for(ConnectionLine cLine : lineList) {
 			g.drawLine(cLine.x1, cLine.y1, cLine.x2, cLine.y2);
 		}

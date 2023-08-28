@@ -4,6 +4,8 @@ import java.awt.GridLayout;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -26,7 +28,7 @@ public class Network {
 	private ArrayList<String[]> notes = new ArrayList<String[]>();
 	private ArrayList<Point> coords = new ArrayList<Point>();
 	
-	boolean[] flags; // true is clicked / deleted
+	private boolean[] flags; // true is clicked / deleted
 	
 	private ArrayList<JButton> nodes = new ArrayList<JButton>();
 	private ArrayList<JFrame> windows = new ArrayList<JFrame>();
@@ -37,19 +39,21 @@ public class Network {
 	private Random RNG = new Random();
 	private NodePanel truePanel;
 	
-	private String[] prefixes = { "Name", "Email 1", "Email 2", "Email 3", "Cell Number", "Work Number", "LinkedIn",
-			"Instagram 1", "Instagram 2", "Snapchat", "Discord", "Facebook Link", "Twitter Link", "Reddit", "Other 1",
-			"Other 2" };
-	
+	private String[] prefixes = {}; // { "Name", "Email 1", "Email 2", "Email 3", "Cell Number", "Work Number", "LinkedIn",
+//			"Instagram 1", "Instagram 2", "Snapchat", "Discord", "Facebook Link", "Twitter Link", "Reddit", "Other 1",
+//			"Other 2" };
+	ArrayList<String[]> prefixList;
 	public Network(ArrayList<ArrayList<String[]>> data) {
 		
-		info = data.get(0);
-		connections = data.get(1);
-		tags = data.get(2);
-		notes = data.get(3);
+		prefixes = data.get(0).get(0);
+		info = data.get(1);
+		connections = data.get(2);
+		tags = data.get(3);
+		notes = data.get(4);
 		numNodes = info.size();
 		setCoordsList(tags);
 		flags = new boolean[numNodes]; // true is clicked / deleted
+		prefixList = new ArrayList<>(); prefixList.add(prefixes); // dumb because of the structure I chose
 		
 		JFrame frame = new JFrame("Network");
 		windows.add(frame);
@@ -64,11 +68,13 @@ public class Network {
 		relocateNodes();
 		frame.add(panel);
 		
-		frame.setSize(new Dimension(MAP_WIDTH, MAP_HEIGHT));
+		frame.setSize(new Dimension(MAP_WIDTH/2, MAP_HEIGHT/2));
 		frame.setVisible(true);
+		frame.setLocation(200,200);
 		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		frame.addWindowListener(new WindowAdapter(){
 		    public void windowClosing(WindowEvent e){
+		    	confirmExit();
 		        closeUpperWindows();
 		    }
 		});
@@ -102,13 +108,13 @@ public class Network {
 					public void actionPerformed(ActionEvent e) {
 						info.add(new String[infoArray.length]);
 						tags.add(new String[10]); // SETS TAG LIMIT
+						notes.add(new String[]{"This is a note. Add relevant information about your contact here."});
 						for (int i = 0; i < infoArray.length; i++) {
 							info.get(info.size()-1)[i] = infoArray[i].getText();
 						}
 						tags.get(info.size()-1)[0] = RNG.nextInt(1200) + "";
 						tags.get(info.size()-1)[1] = RNG.nextInt(600) + "";
 						popup.dispose();
-						
 						popupNewConnections(info.size()-1);
 					}
 				});
@@ -154,12 +160,75 @@ public class Network {
 
 			}
 		});
-		JButton openNavPane = new JButton(new AbstractAction("Open Navigation Pane") {
+		
+		JButton editPrefixes = new JButton(new AbstractAction("Set Default Contact Information") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				navigationPane(frame);
+				JFrame popup = new JFrame("Edit Contact Defaults");
+				windows.add(popup);
+				popup.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+				JPanel panel = new JPanel();
+				panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
+				
+				JLabel text = new JLabel("Enable or disable contact information defaults.");
+				JLabel text2 = new JLabel("Caution: Disabling defaults will delete contact data stored.");
+				panel.add(text);
+				panel.add(text2);
+				
+				JCheckBox[] checkboxes = new JCheckBox[prefixes.length];
+				for (int i = 0; i < prefixes.length; i++) {
+					checkboxes[i] = new JCheckBox();
+					checkboxes[i].setText(prefixes[i]);
+					checkboxes[i].setSelected(true);
+					panel.add(checkboxes[i]);
+				}
+				ArrayList<JTextField> prefixTFs = new ArrayList<JTextField>();
+				JButton addPrefix = new JButton(new AbstractAction("Add default") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						JTextField prefixTextField = new JTextField();
+						prefixTFs.add(prefixTextField);
+						panel.add(prefixTextField);
+						popup.pack();
+					}
+				});
+				JButton saveAndClose = new JButton(new AbstractAction("Save and Close") {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						ArrayList<Integer> pflags = new ArrayList<Integer>();
+						ArrayList<String> newPrefixes = new ArrayList<String>();
+						for(int i=0;i<checkboxes.length;i++) {
+							if(checkboxes[i].isSelected()) {
+								newPrefixes.add(prefixes[i]);
+							} 
+							else pflags.add(i);
+						}
+						for(JTextField tf : prefixTFs) {
+							if(!tf.getText().equals("") && !tf.getText().isEmpty() && !tf.getText().isBlank())
+								newPrefixes.add(tf.getText());
+						}
+						prefixes = newPrefixes.toArray(new String[newPrefixes.size()]);
+						for(int i = 0; i < info.size(); i++) {
+							ArrayList<String> tempArr = new ArrayList<String>(); 
+							tempArr.addAll(Arrays.asList(info.get(i)));
+							for(int j = tempArr.size()-1; j>0; j--) {
+								if(pflags.contains(j)) {
+									tempArr.remove(j);
+								}
+								
+							}
+							tempArr.toArray(info.get(i));
+						}
+						prefixList.set(0, prefixes);
+						popup.dispose();
+					}
+				});	
+				addComponentsToPanel(panel, new ArrayList<JComponent>(Arrays.asList(addPrefix, saveAndClose)));
+				popup.add(panel);
+				defaultPopupBehavior(popup);
 			}
-		});	
+		});
+		
 		JButton refreshNetwork = new JButton(new AbstractAction("Refresh Network") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -175,7 +244,8 @@ public class Network {
 						info.remove(j);
 						connections.remove(j);
 						tags.remove(j);
-//						notes.remove(j);
+						notes.remove(j);
+//						coords.remove(j); Not necessary because this is extracted from the tags arraylist from CURRENT network instance
 						flags_.remove(j);
 						j--;
 						if(!checkFlags(flags_)) { // I don't like this workaround
@@ -183,7 +253,7 @@ public class Network {
 						}
 					}
 				}
-				GUI.restartNetwork(new ArrayList<>(Arrays.asList(info, connections, tags, notes)));
+				GUI.restartNetwork(new ArrayList<>(Arrays.asList(prefixList, info, connections, tags, notes)));
 			}
 		});
 		JButton saveAndClose = new JButton(new AbstractAction("Save and Close") {
@@ -192,78 +262,25 @@ public class Network {
 				for(JFrame f : windows) {
 					f.dispose();
 				}
-				GUI.writeData(new ArrayList<>(Arrays.asList(info, connections, tags, notes)));
+				GUI.writeData(new ArrayList<>(Arrays.asList(prefixList, info, connections, tags, notes)));
 			}
 		});			
 		menuBar.add(addNodeButton);
 		menuBar.add(removeNodeButton);
-//		menuBar.add(openNavPane);
+		menuBar.add(editPrefixes);
 		menuBar.add(refreshNetwork);
 		menuBar.add(saveAndClose);
 		frame.setJMenuBar(menuBar);
 	}
-				
-	private void navigationPane(JFrame parent) {
-		JPanel panel = new JPanel();
-		panel.setLayout(new GridLayout(3,3));
-		JButton dummy = new JButton();
-		dummy.setEnabled(false);
-		JButton dummy1 = new JButton();
-		dummy1.setEnabled(false);
-		JButton dummy2 = new JButton();
-		dummy2.setEnabled(false);
-		JButton dummy3 = new JButton();
-		dummy3.setEnabled(false);
-		JButton dummy4 = new JButton();
-		dummy4.setEnabled(false);
-		
-		JButton translateUp = new JButton(new AbstractAction("Up") {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i).y = coords.get(i).y + 20;
-					relocateNodes();
-				}
-			}
-		});	
-		JButton translateDown = new JButton(new AbstractAction("Down") {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i).y = coords.get(i).y - 20;
-					relocateNodes();
-				}
-			}
-		});	
-		JButton translateLeft = new JButton(new AbstractAction("Left") {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i).x = coords.get(i).x + 20;
-					relocateNodes();
-				}
-			}
-		});	
-		JButton translateRight = new JButton(new AbstractAction("Right") {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				for(int i = 0; i < tags.size(); i++) {
-					coords.get(i).x = coords.get(i).x - 20;
-					relocateNodes();
-				}
-			}
-		});	
-		addComponentsToPanel(panel, new ArrayList<JComponent>(Arrays.asList(
-				dummy,translateUp,dummy1,translateLeft,dummy2,translateRight,dummy3,translateDown,dummy4)));
-		panel.setVisible(true);
-	}
+			
 	private void relocateNodes() {
 		conLines.clear();
 		for(int i=0;i<numNodes;i++) {
 			for(int ID : connectionIDs.get(i)) {
 				conLines.add(new ConnectionLine(coords.get(i), coords.get(ID)));
 			}
-			nodes.get(i).setLocation(coords.get(i).x, coords.get(i).y);
+			nodes.get(i).setLocation(coords.get(i).x - nodes.get(i).getPreferredSize().width / 2, 
+					coords.get(i).y - nodes.get(i).getPreferredSize().height / 2);
 		}
 		truePanel.retrieveLinesList(conLines);
 	}
@@ -275,7 +292,8 @@ public class Network {
 			for(int ID : connectionIDs.get(i)) {
 				conLines.add(new ConnectionLine(coords.get(i), coords.get(ID)));
 			}
-			nodes.get(i).setLocation(coords.get(i).x, coords.get(i).y);
+			nodes.get(i).setLocation(coords.get(i).x - nodes.get(i).getPreferredSize().width / 2, 
+					coords.get(i).y - nodes.get(i).getPreferredSize().height / 2);
 		}
 		truePanel.retrieveLinesList(conLines);
 	}
@@ -284,11 +302,11 @@ public class Network {
 		JButton button = new JButton(new AbstractAction(name) {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JFrame popup = new JFrame("Choose Node action");
+				JFrame popup = new JFrame(name);
 				windows.add(popup);
 				int nodeID = info.indexOf(nodeContactInfo);
 				JPanel panel = new JPanel();
-				panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
+				panel.setLayout(new GridLayout(0, 1));
 				
 				JButton contactInfo = new JButton(new AbstractAction("View Contact Info") {
 					@Override
@@ -311,7 +329,7 @@ public class Network {
 				JButton viewNotes = new JButton(new AbstractAction("View Notes") {
 					@Override
 					public void actionPerformed(ActionEvent e) {
-						popupNotes(notes);
+						popupNotes(myID);
 					}
 				});
 				
@@ -324,8 +342,7 @@ public class Network {
 		for(int ID : connectionIDs.get(myID)) {
 			conLines.add(new ConnectionLine(coords.get(myID), coords.get(ID)));
 		}
-	
-		button.setLocation(x, y);
+		button.setLocation(x - button.getPreferredSize().width / 2, y - button.getPreferredSize().height / 2);
 		button.setSize(button.getPreferredSize());
 		button.setOpaque(true);
 		button.setBackground(new Color(0, 213, 222));
@@ -342,12 +359,20 @@ public class Network {
 		info.setEditable(false);
 		info.append("Contact Points");
 
-		for (int i = 0; i < nodeContactInfo.length; i++) {
-			if(!nodeContactInfo[i].equals(prefixes[i]) && !nodeContactInfo[i].equals("") && !nodeContactInfo[i].equals(" ")) {
-				info.append("\n" + prefixes[i] + ": " + nodeContactInfo[i]);
+		if(nodeContactInfo.length < prefixes.length) {
+			for (int i = 0; i < nodeContactInfo.length; i++) {
+				if(!nodeContactInfo[i].equals(prefixes[i]) && !nodeContactInfo[i].equals("") && !nodeContactInfo[i].equals(" ")) {
+					info.append("\n" + prefixes[i] + ": " + nodeContactInfo[i]);
+				}
+			}
+		} else {
+			for (int i = 0; i < prefixes.length; i++) {
+				if(!nodeContactInfo[i].equals(prefixes[i]) && !nodeContactInfo[i].equals("") && !nodeContactInfo[i].equals(" ")) {
+					info.append("\n" + prefixes[i] + ": " + nodeContactInfo[i]);
+				}
 			}
 		}
-
+		
 		JScrollPane areaScrollPane = new JScrollPane(info);
 		areaScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		areaScrollPane.setPreferredSize(new Dimension(300, 300));
@@ -364,14 +389,24 @@ public class Network {
 		panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
 
 		JTextField[] infoArray = new JTextField[prefixes.length];
-
-		for (int i = 0; i < nodeContactInfo.length; i++) {
-			if(nodeContactInfo[i] == " " || nodeContactInfo[i] == "") {
-				infoArray[i] = new JTextField(prefixes[i]);
+		if(nodeContactInfo.length < prefixes.length) {
+			for (int i = 0; i < nodeContactInfo.length; i++) {
+				if(nodeContactInfo[i] == " " || nodeContactInfo[i] == "") {
+					infoArray[i] = new JTextField(prefixes[i]);
+				}
+				else infoArray[i] = new JTextField(nodeContactInfo[i]);
+				panel.add(infoArray[i]);
 			}
-			else infoArray[i] = new JTextField(nodeContactInfo[i]);
-			panel.add(infoArray[i]);
+		} else {
+			for (int i = 0; i < prefixes.length; i++) {
+				if(nodeContactInfo[i] == " " || nodeContactInfo[i] == "") {
+					infoArray[i] = new JTextField(prefixes[i]);
+				}
+				else infoArray[i] = new JTextField(nodeContactInfo[i]);
+				panel.add(infoArray[i]);
+			}
 		}
+		
 		for(int i = nodeContactInfo.length; i<prefixes.length; i++) {
 			infoArray[i] = new JTextField(prefixes[i]);
 			panel.add(infoArray[i]);
@@ -384,8 +419,7 @@ public class Network {
 				for (int i = 0; i < infoArray.length; i++) {
 					temp[i] = infoArray[i].getText();
 				}
-				info.add(info.indexOf(nodeContactInfo), temp);
-				info.remove(nodeContactInfo);
+				info.set(info.indexOf(nodeContactInfo), temp);
 				popup.dispose();
 			}
 		});
@@ -394,30 +428,32 @@ public class Network {
 		popup.add(panel);
 		defaultPopupBehavior(popup);
 	}
-	private void popupNotes(String[] notes) {
+	private void popupNotes(int nodeID) {
 		JFrame popup = new JFrame("Notes");
 		windows.add(popup);
 		JPanel panel = new JPanel();
 		JTextArea noteArea;
-		if(notes[0]!=null) { // Crashes anyway if empty- initialize new nodes with placeholder data 
-			noteArea = new JTextArea(notes[0], 10, 10);
+		if(notes.get(nodeID)[0]!=null) { // Crashes anyway if empty- initialize new nodes with placeholder data
+			noteArea = new JTextArea("", 9, 16);
+			for(String line : notes.get(nodeID)) {
+				noteArea.append(line + "\n");
+			}
 		} else {
-			noteArea = new JTextArea("This is a note. Add relevant information about your contact here.");
+			noteArea = new JTextArea("This is a note. Add relevant information about your contact here.", 9, 16);
 		}
 		noteArea.setLineWrap(true);
-		JButton submitInfo = new JButton(new AbstractAction("Submit Info") {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				notes[0] = noteArea.getText();
-				popup.dispose();
-			}
-		});
+		noteArea.setWrapStyleWord(true);
 		panel.add(noteArea);
-		panel.add(submitInfo);
-
-		popup.add(panel);
+		JScrollPane areaScrollPane = new JScrollPane(panel);
+		areaScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+		popup.add(areaScrollPane);
 		defaultPopupBehavior(popup);
-		popup.setSize(new Dimension(300, 400));
+		popup.addWindowListener(new WindowAdapter(){
+		    public void windowClosing(WindowEvent e){
+		    	notes.set(nodeID, noteArea.getText().split("\n"));
+				popup.dispose();
+		    }
+		});  
 	}
 	private void popupEditConnections(int nodeID) {
 		JFrame popup = new JFrame("Edit Connections");
@@ -458,8 +494,7 @@ public class Network {
 						newConnections.add(element.getText());
 					}
 				});  
-				connections.remove(nodeID);
-				connections.add(nodeID, newConnections.toArray(new String[newConnections.size()])); 
+				connections.set(nodeID, newConnections.toArray(new String[newConnections.size()])); 
 				popup.dispose();
 			}
 		});
@@ -475,7 +510,7 @@ public class Network {
 		windows.add(popup);
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
-		boolean hasAtLeastOneConnection = false;
+//		boolean hasAtLeastOneConnection = false;
 		ArrayList<JCheckBox> myConnections = new ArrayList<JCheckBox>();
 		JLabel text = new JLabel("Select connections");
 		panel.add(text);
@@ -491,23 +526,25 @@ public class Network {
 			}
 		}
 		JButton submitChanges = new JButton(new AbstractAction("Save Connections") {
-			boolean f = hasAtLeastOneConnection;
+//			boolean f = hasAtLeastOneConnection;
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				ArrayList<String> newConnections = new ArrayList<String>();
 				myConnections.forEach( (element) -> { 
 					if(element.isSelected()) {
 						newConnections.add(element.getText());
-						f = true;
+//						f = true;
 					}
 				});  
-				if(f) {
-					connections.add(nodeID, newConnections.toArray(new String[newConnections.size()])); 
-					popup.dispose();
-				} else {
-					panel.add(new JLabel("Please add at least one connection"));
-					popup.pack();
-				}
+				connections.add(nodeID, newConnections.toArray(new String[newConnections.size()])); 
+				popup.dispose();
+//				if(f) {
+//					connections.add(nodeID, newConnections.toArray(new String[newConnections.size()])); 
+//					popup.dispose();
+//				} else {
+//					panel.add(new JLabel("Please add at least one connection"));
+//					popup.pack();
+//				}
 
 			}
 		});
@@ -578,6 +615,7 @@ public class Network {
 	}
 	private int nameToID(String name) { 
 		for(int i = 0; i < info.size(); i++) {
+			System.out.println(info.get(i)[0]);
 			if(info.get(i)[0].equals(name)) return i;
 		}
 		System.out.println("Name not found...");
@@ -585,7 +623,7 @@ public class Network {
 	}
 	private String IDtoName(int id) {
 		try {
-			return info.get(0)[0];
+			return info.get(id)[0];
 		} catch (IndexOutOfBoundsException e) {
 			System.out.println("ID not found...");
 			return "N/A";
@@ -601,6 +639,11 @@ public class Network {
 		int[] translatedIDs = new int[names.length];
 		for(int i=0;i<names.length;i++) {
 			translatedIDs[i] = nameToID(names[i]);
+			/*
+			 * TODO Current issue: When no connections are selected (edit connection -> remove all connections) 
+			 * Program will crash due to it returning -1 as the empty name, and -1 has no ID associated. 
+			 * 8/26/23
+			 */
 		}
 		return translatedIDs;
 	}
@@ -636,5 +679,8 @@ public class Network {
 			windows.remove(i);
 			i--;
 		}
+	}
+	private void confirmExit() {
+		System.out.println("TO BE IMPLEMENTED: Are you sure you want to exit?");
 	}
 }
