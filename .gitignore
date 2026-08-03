@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+dist/
+build/
+**/build/
+out/
+
+# IDE/System files
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Docker
+postgres_data/
